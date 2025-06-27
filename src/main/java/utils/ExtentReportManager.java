@@ -2,39 +2,35 @@ package utils;
 
 import com.aventstack.extentreports.ExtentReports;
 import com.aventstack.extentreports.reporter.ExtentSparkReporter;
-import com.aventstack.extentreports.reporter.configuration.Theme;
-
-import java.io.File;
 
 public class ExtentReportManager {
+
     private static ExtentReports extent;
-   
+    private static ExtentSparkReporter spark;
+
+  private static final String reportPath = System.getProperty("user.dir") + "/reports/ExtentReport.html";
+
     public static ExtentReports getReportInstance() {
         if (extent == null) {
-            String reportPath = "reports/extent-report.html";
-            File reportsDir = new File("reports/screenshots");
-            if (!reportsDir.exists()) {
-                reportsDir.mkdirs();
-            }
+            spark = new ExtentSparkReporter(reportPath);
 
-            // Create SparkReporter
-            ExtentSparkReporter sparkReporter = new ExtentSparkReporter(reportPath);
-            sparkReporter.config().setReportName("SauceDemo Automation Report");
-            sparkReporter.config().setDocumentTitle("Test Execution Report");
-            sparkReporter.config().setTheme(Theme.STANDARD);
-            sparkReporter.config().setTimeStampFormat("yyyy-MM-dd HH:mm:ss");
-
-            // Create ExtentReports and attach reporter
             extent = new ExtentReports();
-            extent.attachReporter(sparkReporter);
+            extent.attachReporter(spark);
 
-            // Set environment/system info
+            extent.setSystemInfo("Project", "SauceDemo");
             extent.setSystemInfo("Tester", "Sonam Burbure");
-            extent.setSystemInfo("Environment", "QA");
-            extent.setSystemInfo("Browser", "Chrome");
-            extent.setSystemInfo("OS", System.getProperty("os.name"));
-            extent.setSystemInfo("Java Version", System.getProperty("java.version"));
         }
         return extent;
+    }
+
+    public static void flush() {
+        if (extent != null) {
+            extent.flush();
+            System.out.println("📄 Extent Report generated at: " + reportPath);
+        }
+    }
+
+    public static String getReportPath() {
+        return reportPath;
     }
 }

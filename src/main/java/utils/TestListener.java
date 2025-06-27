@@ -3,22 +3,16 @@ package utils;
 import com.aventstack.extentreports.Status;
 import com.aventstack.extentreports.ExtentReports;
 import com.aventstack.extentreports.ExtentTest;
-import org.openqa.selenium.OutputType;
-import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
 import org.testng.*;
 
-import java.io.File;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
 public class TestListener implements ITestListener {
 
-    private static ExtentReports extent = ExtentReportManager.getReportInstance();
-    private static Map<Long, ExtentTest> extentTestMap = new HashMap<>();
-    public static ThreadLocal<WebDriver> driverThreadLocal = new ThreadLocal<>();
+    private static final ExtentReports extent = ExtentReportManager.getReportInstance();
+    private static final Map<Long, ExtentTest> extentTestMap = new HashMap<>();
 
     public static synchronized ExtentTest getTest() {
         return extentTestMap.get(Thread.currentThread().getId());
@@ -32,7 +26,7 @@ public class TestListener implements ITestListener {
 
     @Override
     public void onTestSuccess(ITestResult result) {
-        getTest().log(Status.PASS, "Test Passed: " + result.getMethod().getMethodName());
+        getTest().log(Status.PASS, "✅ Test Passed: " + result.getMethod().getMethodName());
     }
 
     @Override
@@ -41,32 +35,38 @@ public class TestListener implements ITestListener {
         test.log(Status.FAIL, "❌ Test Failed: " + result.getMethod().getMethodName());
         test.log(Status.FAIL, result.getThrowable());
 
-        WebDriver driver = BaseTest.driver; // Or from ThreadLocal if using parallel
+       
+        WebDriver driver = null;
+        try {
+            Object currentClass = result.getInstance();
+            driver = ((BaseTest) currentClass).getDriver();
+        } catch (Exception e) {
+            test.warning("⚠️ Could not retrieve WebDriver instance: " + e.getMessage());
+        }
+
         if (driver != null) {
-            try {
-                String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-                String screenshotPath = "reports/screenshots/" + result.getMethod().getMethodName() + "_" + timeStamp + ".png";
-                File srcFile = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
-                File destFile = new File(screenshotPath);
-                destFile.getParentFile().mkdirs();
-                srcFile.renameTo(destFile);
-                test.addScreenCaptureFromPath(screenshotPath);
-            } catch (Exception e) {
-                test.warning("Screenshot capture failed: " + e.getMessage());
+            String screenshotPath = ScreenshotUtil.captureScreenshot(driver, result.getMethod().getMethodName());
+            if (screenshotPath != null) {
+                try {
+                    test.addScreenCaptureFromPath(screenshotPath);
+                } catch (Exception e) {
+                    test.warning("⚠️ Failed to attach screenshot: " + e.getMessage());
+                }
             }
         }
     }
 
     @Override
     public void onTestSkipped(ITestResult result) {
-        getTest().log(Status.SKIP, "Test Skipped: " + result.getMethod().getMethodName());
+        ExtentTest test = getTest();
+        test.log(Status.SKIP, "⚠️ Test Skipped: " + result.getMethod().getMethodName());
         if (result.getThrowable() != null) {
-            getTest().log(Status.SKIP, result.getThrowable().getMessage());
+            test.log(Status.SKIP, result.getThrowable().getMessage());
         }
     }
 
     @Override
     public void onFinish(ITestContext context) {
-        extent.flush();
+        ExtentReportManager.flush();
     }
 }
